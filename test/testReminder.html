@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title></title>
+</head>
+<body>
+保险起期：<input type="text" name="" id='startTime' value="2016-8-18"><br>
+保险止期：<input type="text" name="" id='endTime' value="2017-8-17"><br>
+缴费频率：
+<select>
+    <option value="年缴" selected>年缴</option>
+    <option value="月缴">月缴</option>
+    <option value="季缴">季缴</option>
+    <option value="半年缴">半年缴</option>
+    <option value="趸缴">趸缴</option>
+    <option value="三年缴">三年缴</option>
+</select>
+<br>
+缴费区间：<input type="text" name="" id="payPeriod" value="1"><br>
+<!-- 缴费次数：<input type="text" name="" id="hasPay" value="3"><br> -->
+身份证号：<input type="text" name="" id="birthDay" value="340827199508104924"><br>
+证件类型:<input type="text" name="" id="aType" value="0"><br>
+保单状态: <input type="text" name="" id='status' value="4"><br>
+在此处粘贴json字符串：<br>
+ <textarea id="jsonText" rows="10" cols="40"></textarea>
+<hr>
+<select style="font-size: 15px;margin-left: 50px;margin-bottom: 10px;margin-top: 10px;" id="choose">
+	<option value="0">请选择解析模式</option>
+	<option value="1">输入框输入</option>
+	<option value="2">粘贴json数据</option>
+</select><br>
+<button style="font-size: 15px;margin-left: 50px;margin-bottom: 10px;margin-top: 10px;" onclick="mainFunction()">保单解析</button><br>
+
+显示结果：
+<div style="width: 400px;font-size: 12px;word-break: break-all;border:1px solid #5CC9F5;color: #333333;" id="showInfo">
+</div>
+</body>
+<script type="text/javascript" src='policyAnalysis.js'></script>
+<script type="text/javascript">
+	
+	// 设置一个匹配字段
+	var fieldMatch = {
+		isRemind:'是否提醒',
+		remindType:'提醒类型',
+		msg:'错误提示',
+	}
+	//设置一个结果集,用于展示页面上显示
+	var res = '';
+	// 入口主函数控制输入框输入或粘贴json数据
+	function mainFunction(){
+		var select = document.getElementsByTagName('select')[1].value;
+		if (select == 0) {
+			alert('请选择解析方式');
+			return false;
+		}
+		if (select == 1) {	// 选中方式为输入框输入
+			var startTime = document.getElementById('startTime').value;
+			var endTime = document.getElementById('endTime').value;
+        	var payFreWord = document.getElementsByTagName('select')[0].value;
+        	var payPeriod = document.getElementById('payPeriod').value;
+        	var idCard = document.getElementById('birthDay').value;
+        	var aType = document.getElementById('aType').value;
+        	var status = document.getElementById('status').value;
+
+        	var policyInfo = {	// 拼接所需数据
+        		status:1,
+        		info:{
+        			startTime:startTime,
+        			endTime:endTime,
+        			payPeriod:payPeriod,
+        			payFreWord:payFreWord,
+        			status:status,
+        			idCard:idCard,
+        			aType:aType
+        		}
+        	}
+
+        	// 调用函数解析
+        	res = policyReminder.init(policyInfo);
+		} else if (select == 2) {	// 选中方式为json字符串粘贴
+			// 输入框获取json数据
+			var policyInfo = document.getElementById('jsonText').value;			
+			// 调用函数解析
+			res = policyReminder.init(policyInfo);
+			//将json数据一并返回
+			res.datajson = policyInfo;			
+		}
+		console.log(res);
+
+
+		/*----------以下为结果展示页面---------*/
+
+		//先判断数据是否解析成功
+		if (res.status == 1) {
+			//交费提醒模版
+			var payObj = res.info[0];
+			var payTpl = '';
+			if (payObj.isRemind == 0) {
+				payTpl = '<p>交费提醒:无;备注:' + payObj.msg + '</p>';
+			} else if (payObj.isRemind == 1) {
+				var paydetailObj = payObj.info;
+				var tpl = '';
+				for (var i in paydetailObj) {
+					tpl = '<p>交费提醒:是;频率:'+ paydetailObj[i].differDate + '日期:' + paydetailObj[i].payDate + '</p>';
+					payTpl += tpl;
+				}
+			}
+
+			//续保提醒模版
+			var continuepayObj = res.info[1];
+			var continueTpl = '';
+			var continuedetailObj = continuepayObj.info;
+			if (continuepayObj.isRemind == 0) {
+				continueTpl = '<p>续保提醒:无;备注:' + continuepayObj.msg +'</p>';
+			} else if (continuepayObj.isRemind == 1) {
+				continueTpl = '<p>续保提醒是;频率:' + continuedetailObj.differDate + '日期:' + continuedetailObj.continuePayTime + '</p>';
+			}
+
+			// 到期提醒模版
+			var overpayObj = res.info[2];
+			var overpayTpl = '';
+			var overpaydetailObj = overpayObj.info;
+			if (overpayObj.isRemind == 0) {
+				overpayTpl = '<p>到期提醒:无;备注:'  + overpayObj.msg +'</p>'; 
+			} else if (overpayObj.isRemind == 0 && overpayObj.msg == 'no match date') {
+				overpayTpl = '<p>到期提醒:无;备注:'  + overpayObj.msg + '到期时间:' +  overpaydetailObj.endTime +'</p>'; 
+			} else if (overpayObj.isRemind == 1) {
+				overpayTpl = '<p>到期提醒:是;' + '频率:' + overpaydetailObj.differDate + '到期时间:' +  overpaydetailObj.endTime +'</p>';
+			}
+
+			//生日提醒模版
+			var birthObj = res.info[3];
+			var birthTpl = '';
+			var birthdetailObj = birthObj.info;
+			if (birthObj.isRemind == 0) {
+				birthTpl = '<p>生日提醒:无;备注:' + birthObj.msg + '</p>';
+			} else if (birthObj.isRemind == 1) {
+				birthTpl = '<p>生日提醒:是;' + ' 年龄:' + birthdetailObj.currentAge + '频率:' + birthdetailObj.differDate+ '日期:'+birthdetailObj.remindDate + '</p>';
+			}
+			//将四种提醒模版汇总
+			var showTpl = payTpl + continueTpl + overpayTpl + birthTpl;
+			//显示在显示结果框内
+			document.getElementById('showInfo').innerHTML = showTpl;
+		} else {
+			document.getElementById('showInfo').innerHTML = '无法解析!备注:' +  res.msg;
+		}
+	 }
+</script>
+</html>
+
+
+
+
+
